@@ -1,10 +1,31 @@
+import csv
+
+import random
+import matplotlib.pyplot as plt
+import sys
+
+sys.setrecursionlimit(50000)
+
+
 # Global literals list (track all literals globally)
-global_literals = [1, 2, 3]  # Example literals, you can modify this
-computation_steps = 0  # Global counter for computation steps
+def generate_random_3sat(m, n):
+    """
+    Generate a random 3-SAT problem with m clauses and n literals.
+    Each clause has exactly 3 literals, chosen randomly from 1 to n and their negations.
+    """
+    clauses = []
+    for _ in range(m):
+        clause = random.sample(range(1, n + 1), 3)  # Choose 3 distinct literals
+        clause = [random.choice([lit, -lit]) for lit in clause]  # Randomly negate literals
+        clauses.append(clause)
+    return clauses
+
+
+# Track computation steps for solving the 3SAT problem
+computation_steps = 0
+
 
 def find_max_frequency_literal(clauses):
-    global computation_steps
-
     # Calculate the frequency of each literal across all clauses
     freq = {}
 
@@ -16,13 +37,11 @@ def find_max_frequency_literal(clauses):
 
     # Find the literal with the maximum frequency
     max_literal = max(freq, key=freq.get)
-    computation_steps += 1
-
     return max_literal, freq
+
 
 def solve_3sat(clauses, literals):
     global computation_steps
-
     m = len(clauses)  # Number of clauses
     n = len(literals)  # Number of literals
 
@@ -38,41 +57,86 @@ def solve_3sat(clauses, literals):
     max_literal, freq = find_max_frequency_literal(clauses)
 
     # Step 2: Try assigning true to the max_literal
-    # Remove clauses that are satisfied by assigning the max_literal as True
     clauses_true = [clause for clause in clauses if max_literal not in clause]
 
     # Step 3: Try assigning false to the max_literal
-    # Remove clauses that are satisfied by assigning the max_literal as False
     clauses_false = [clause for clause in clauses if -max_literal not in clause]
 
     # Step 4: Recursively solve the problem by reducing the number of clauses and literals
+    computation_steps += 1  # Track computation step for every recursive call
+
     # Case 1: Assign max_literal to true (local literals are updated)
-    new_literals_true = [lit for lit in literals if lit != max_literal]  # Local literal update
+    new_literals_true = [lit for lit in literals if lit != max_literal]
     if solve_3sat(clauses_true, new_literals_true):
-        computation_steps += 1
         return True
 
     # Case 2: Assign max_literal to false (local literals are updated)
-    new_literals_false = [lit for lit in literals if lit != -max_literal]  # Local literal update
+    new_literals_false = [lit for lit in literals if lit != -max_literal]
     if solve_3sat(clauses_false, new_literals_false):
-        computation_steps += 1
         return True
-
 
     # If neither case works, return False
     return False
 
-# Example input:
-# Let's assume the 3SAT problem is represented as:
-clauses = [[1, 2, 3], [1, -2, 3], [1, 2, -3], [-1, -2, 3]]
 
-# Solve the 3SAT problem using global literals and local literals
-solution = solve_3sat(clauses, global_literals)
+# Function to generate random problems and plot computation steps
+def generate_and_plot(m_values, n_values):
+    steps_data = []  # List to store computation data
 
-if solution:
-    print("3SAT is solvable")
-else:
-    print("3SAT is unsolvable")
-print(f"Computation steps: {computation_steps}")
+    for m in m_values:
+        for n in n_values:
+            global computation_steps
+            # Generate random 3-SAT problem
+            clauses = generate_random_3sat(m, n)
+            literals = list(range(1, n + 1))  # Literals from 1 to n
+            computation_steps = 0  # Reset computation steps
+            # Solve the 3-SAT problem
+            solve_3sat(clauses, literals)
 
+            # Store the results in steps_data
+            steps_data.append([m, n, m + n, computation_steps])
+            print(f"m={m}, n={n}, m+n={m+n}, steps={computation_steps}")  # Optional: Debugging output
 
+    # Save the data to a CSV file
+    with open('computation_data.csv', mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["m", "n", "m+n", "computation_steps"])
+        writer.writerows(steps_data)
+
+    # Plotting m vs computation steps and save as PNG
+    m_vals, m_steps = zip(*[(m, comp) for m, _, _, comp in steps_data])
+    plt.figure(figsize=(10, 6))
+    plt.scatter(m_vals, m_steps, c=m_steps, cmap='viridis', s=50)
+    plt.colorbar(label='Computation Steps')
+    plt.xlabel('Number of Clauses (m)')
+    plt.ylabel('Computation Steps')
+    plt.title('Number of Clauses vs Computation Steps')
+    plt.savefig('m_vs_computation.png')  # Save plot as PNG
+
+    # Plotting n vs computation steps and save as PNG
+    n_vals, n_steps = zip(*[(n, comp) for _, n, _, comp in steps_data])
+    plt.figure(figsize=(10, 6))
+    plt.scatter(n_vals, n_steps, c=n_steps, cmap='viridis', s=50)
+    plt.colorbar(label='Computation Steps')
+    plt.xlabel('Number of Literals (n)')
+    plt.ylabel('Computation Steps')
+    plt.title('Number of Literals vs Computation Steps')
+    plt.savefig('n_vs_computation.png')  # Save plot as PNG
+
+    # Plotting m + n vs computation steps and save as PNG
+    mn_vals, mn_steps = zip(*[(m + n, comp) for m, n, _, comp in steps_data])
+    plt.figure(figsize=(10, 6))
+    plt.scatter(mn_vals, mn_steps, c=mn_steps, cmap='viridis', s=50)
+    plt.colorbar(label='Computation Steps')
+    plt.xlabel('m + n')
+    plt.ylabel('Computation Steps')
+    plt.title('m + n vs Computation Steps')
+    plt.savefig('mn_vs_computation.png')  # Save plot as PNG
+
+    print("Plots and computation data saved successfully!")
+
+# Test the generation and plot with random SAT problems of varying size
+m_values = range(5, 1001, 100)
+n_values = range(5, 1001, 100)
+
+generate_and_plot(m_values, n_values)
